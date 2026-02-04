@@ -1,0 +1,8 @@
+timeoe-project/
+├── packages/
+│   ├── engine/               # TimeOEEngine core logic (Node.js or TypeScript)
+│   └── app/                  # Next.js frontend + UI (your current Vercel app)
+├── docs/                     # Documentation, roadmaps, tokenomics
+├── .github/workflows/        # CI/CD (optional later)
+├── README.md
+└── package.json              # root monorepo config (pnpm workspaces or yarn/npm workspaces)
