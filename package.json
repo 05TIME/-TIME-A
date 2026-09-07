@@ -1,0 +1,1 @@
+{"name":"timeoe","private":true,"version":"0.1.0","workspaces":["packages/*"],"scripts":{"test":"npm test --workspaces --if-present"}}
