@@ -4,7 +4,7 @@ import { getAuthenticatedUser } from '../../../../lib/auth';
 
 export async function POST(request, { params }) {
   try {
-    const user = await getAuthenticatedUser();
+    const user = await getAuthenticatedUser(request);
     if (!user) return NextResponse.json({ error: 'Authentication required' }, { status: 401 });
 
     const body = await request.json().catch(() => ({}));
