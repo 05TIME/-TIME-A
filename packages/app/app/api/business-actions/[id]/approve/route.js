@@ -1,11 +1,17 @@
 import { NextResponse } from 'next/server';
 import { supabaseAdmin, emitBusinessEvent } from '../../../../lib/business-actions';
+import { getAuthenticatedUser } from '../../../../lib/auth';
 
 export async function POST(request, { params }) {
   try {
+    const user = await getAuthenticatedUser();
+    if (!user) return NextResponse.json({ error: 'Authentication required' }, { status: 401 });
+
     const body = await request.json().catch(() => ({}));
-    const approvedBy = body.approved_by || 'human';
-    if (!approvedBy || approvedBy === 'system') return NextResponse.json({ error: 'A human approver is required' }, { status: 400 });
+    const approvedBy = user.id;
+    if (body.approved_by && body.approved_by !== user.id && body.approved_by !== 'human') {
+      return NextResponse.json({ error: 'approved_by must match the authenticated user' }, { status: 403 });
+    }
 
     const { data: action, error: actionError } = await supabaseAdmin.from('timeoe_business_actions').select('*').eq('id', params.id).single();
     if (actionError) throw actionError;
