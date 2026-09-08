@@ -1,10 +1,13 @@
 import { createClient } from '@supabase/supabase-js';
 
-export const supabaseAdmin = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL,
-  process.env.SUPABASE_SERVICE_ROLE_KEY,
-  { auth: { autoRefreshToken: false, persistSession: false } }
-);
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+const supabaseSecretKey = process.env.SUPABASE_SECRET_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY;
+
+if (!supabaseUrl || !supabaseSecretKey) throw new Error('Supabase server credentials are not configured');
+
+export const supabaseAdmin = createClient(supabaseUrl, supabaseSecretKey, {
+  auth: { autoRefreshToken: false, persistSession: false }
+});
 
 const SENSITIVE_ACTIONS = new Set([
   'SPEND_MONEY', 'PAYOUT', 'SEND_EXTERNAL_MESSAGE', 'CHANGE_PRICE', 'CREATE_CONTRACT'
