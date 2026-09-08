@@ -1,14 +1,22 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
+import { createBusinessAction } from '../../../lib/business-actions';
 
 const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY, { auth: { autoRefreshToken: false, persistSession: false } });
 
 const WORKERS = {
   plan: ({ objective }) => ({ kind: 'PLAN', objective, actions: ['execute', 'verify', 'adapt'] }),
-  execute: ({ objective, plan }) => ({ kind: 'ACTION', objective, action: plan?.actions?.[0] || 'execute', outcome: 'baseline_action_completed' }),
   verify: ({ action }) => ({ kind: 'VERIFICATION', verified: true, checks: ['result_present', 'state_consistent'], action }),
   adapt: ({ objective, verification }) => ({ kind: 'ADAPTATION', objective, next_action: verification?.verified ? 'scale_or_repeat' : 'recover_and_retry', verified: Boolean(verification?.verified) })
 };
+
+function classifyBusinessAction(objective = '') {
+  const text = objective.toLowerCase();
+  if (/outreach|prospect|lead|customer|email|message|sales|sell|acquire/.test(text)) {
+    return { actionType: 'SEND_EXTERNAL_MESSAGE', provider: process.env.TIMEOE_OUTREACH_PROVIDER || 'webhook' };
+  }
+  return null;
+}
 
 async function emit(commandId, taskId, agentId, eventType, state, payload = {}) {
   const { error } = await supabase.from('timeoe_events').insert({ command_id: commandId, task_id: taskId, agent_id: agentId || null, event_type: eventType, state, payload });
@@ -20,6 +28,31 @@ async function runTask(command, task, agentId, context) {
   await supabase.from('timeoe_execution_tasks').update({ state: 'RUNNING', attempts, started_at: new Date().toISOString(), agent_id: agentId }).eq('id', task.id);
   await emit(command.id, task.id, agentId, 'TASK_RUNNING', 'RUNNING', { task_key: task.task_key, attempt: attempts });
   try {
+    if (task.task_key === 'execute') {
+      const classified = classifyBusinessAction(command.objective);
+      if (classified) {
+        const action = await createBusinessAction({
+          businessId: command.business_id,
+          commandId: command.id,
+          taskId: task.id,
+          actionType: classified.actionType,
+          provider: classified.provider,
+          payload: { objective: command.objective, execution_mode: 'approval_gated' },
+          requestedBy: 'timeoe'
+        });
+        const waiting = action.status === 'PENDING_APPROVAL';
+        const result = { kind: 'BUSINESS_ACTION', action_id: action.id, status: action.status, approval_required: action.requires_approval, external_effect: action.external_effect };
+        const { error } = await supabase.from('timeoe_execution_tasks').update({ state: waiting ? 'WAITING' : 'VERIFIED', result, completed_at: waiting ? null : new Date().toISOString(), error: null }).eq('id', task.id);
+        if (error) throw error;
+        await emit(command.id, task.id, agentId, waiting ? 'TASK_WAITING_APPROVAL' : 'TASK_VERIFIED', waiting ? 'WAITING' : 'VERIFIED', result);
+        return { ...result, waiting };
+      }
+      const result = { kind: 'ACTION', objective: command.objective, action: 'internal_execution', outcome: 'baseline_action_completed' };
+      await supabase.from('timeoe_execution_tasks').update({ state: 'VERIFIED', result, completed_at: new Date().toISOString(), error: null }).eq('id', task.id);
+      await emit(command.id, task.id, agentId, 'TASK_VERIFIED', 'VERIFIED', { task_key: task.task_key, result });
+      return result;
+    }
+
     const worker = WORKERS[task.task_key];
     if (!worker) throw new Error(`No worker registered for ${task.task_key}`);
     const result = worker({ ...(task.input || {}), ...context });
@@ -63,6 +96,7 @@ export async function POST(_request, { params }) {
       try {
         const result = await runTask(command, ready, agent.id, context);
         context = { ...context, [ready.task_key]: result };
+        if (result?.waiting) break;
         completed += 1;
       } catch (error) {
         if (error.retryable) continue;
