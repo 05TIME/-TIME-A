@@ -1,13 +1,17 @@
 import { NextResponse } from 'next/server';
 import { supabaseAdmin } from '../../../../lib/business-actions';
+import { getAuthenticatedUser } from '../../../../lib/auth';
 
 async function emit(command, eventType, state, payload = {}) {
   const { error } = await supabaseAdmin.from('timeoe_events').insert({ command_id: command.id, event_type: eventType, state, payload });
   if (error) throw error;
 }
 
-export async function POST(_request, { params }) {
+export async function POST(request, { params }) {
   try {
+    const user = await getAuthenticatedUser(request);
+    if (!user) return NextResponse.json({ error: 'Authentication required' }, { status: 401 });
+
     const { data: command, error: commandError } = await supabaseAdmin.from('timeoe_commands').select('*').eq('id', params.id).single();
     if (commandError) throw commandError;
 
@@ -27,11 +31,13 @@ export async function POST(_request, { params }) {
     if (failed.length) return NextResponse.json({ command_id: command.id, status: 'FAILED', failed_actions: failed.map((a) => a.id) }, { status: 409 });
 
     await supabaseAdmin.from('timeoe_commands').update({ status: 'RUNNING' }).eq('id', command.id);
-    await emit(command, 'COMMAND_RESUMED', 'RUNNING', { command_id: command.id });
+    await emit(command, 'COMMAND_RESUMED', 'RUNNING', { command_id: command.id, resumed_by: user.id });
 
-    const origin = new URL(_request.url);
+    const origin = new URL(request.url);
     const executeUrl = `${origin.origin}/api/commands/${command.id}/execute`;
-    const response = await fetch(executeUrl, { method: 'POST', headers: { 'content-type': 'application/json' } });
+    const workerSecret = process.env.TIMEOE_WORKER_SECRET;
+    if (!workerSecret) throw new Error('TIMEOE_WORKER_SECRET is not configured');
+    const response = await fetch(executeUrl, { method: 'POST', headers: { 'content-type': 'application/json', 'x-timeoe-worker-secret': workerSecret } });
     const result = await response.json().catch(() => ({}));
     return NextResponse.json(result, { status: response.status });
   } catch (error) {
