@@ -11,8 +11,33 @@ export async function POST(request) {
 
     const body = await request.json();
     const objective = String(body.objective || '').trim();
-    const businessId = body.business_id || process.env.TIMEOE_DEFAULT_BUSINESS_ID || null;
     if (!objective) return NextResponse.json({ error: 'objective is required' }, { status: 400 });
+
+    const requestedBusinessId = body.business_id || process.env.TIMEOE_DEFAULT_BUSINESS_ID || null;
+    let businessId = requestedBusinessId;
+
+    if (businessId) {
+      const { data: membership, error: membershipError } = await supabase
+        .from('memberships')
+        .select('business_id')
+        .eq('business_id', businessId)
+        .eq('user_id', user.id)
+        .maybeSingle();
+      if (membershipError) throw membershipError;
+      if (!membership) return NextResponse.json({ error: 'You are not a member of the requested business' }, { status: 403 });
+    } else {
+      const { data: membership, error: membershipError } = await supabase
+        .from('memberships')
+        .select('business_id')
+        .eq('user_id', user.id)
+        .order('created_at', { ascending: true })
+        .limit(1)
+        .maybeSingle();
+      if (membershipError) throw membershipError;
+      businessId = membership?.business_id || null;
+    }
+
+    if (!businessId) return NextResponse.json({ error: 'No business context. Initialize a TIMEŒ business first.' }, { status: 409 });
 
     const { data: command, error: commandError } = await supabase.from('timeoe_commands').insert({ objective, business_id: businessId, status: 'QUEUED', plan: { source: 'timeoe-command-center', requested_by: user.id } }).select().single();
     if (commandError) throw commandError;
