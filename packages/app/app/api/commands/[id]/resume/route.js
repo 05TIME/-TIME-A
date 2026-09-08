@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { supabaseAdmin } from '../../../../../lib/business-actions';
+import { supabaseAdmin } from '../../../../lib/business-actions';
 
 async function emit(command, eventType, state, payload = {}) {
   const { error } = await supabaseAdmin.from('timeoe_events').insert({ command_id: command.id, event_type: eventType, state, payload });
