@@ -1,1 +1,18 @@
-{"name":"@timeoe/app","private":true,"version":"0.1.0","scripts":{"dev":"next dev","build":"next build","start":"next start"},"dependencies":{"@supabase/supabase-js":"latest","@vercel/analytics":"^2.0.1","next":"latest","react":"latest","react-dom":"latest"}}
+{
+  "name": "@timeoe/app",
+  "private": true,
+  "version": "0.1.0",
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "latest",
+    "@supabase/ssr": "latest",
+    "@vercel/analytics": "^2.0.1",
+    "next": "latest",
+    "react": "latest",
+    "react-dom": "latest"
+  }
+}
