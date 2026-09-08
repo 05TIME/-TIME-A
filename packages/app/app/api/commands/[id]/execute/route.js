@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import { createBusinessAction } from '../../../../lib/business-actions';
+import { workerAuthorized } from '../../../../lib/auth';
 
 const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY, { auth: { autoRefreshToken: false, persistSession: false } });
 
@@ -12,9 +13,7 @@ const WORKERS = {
 
 function classifyBusinessAction(objective = '') {
   const text = objective.toLowerCase();
-  if (/outreach|prospect|lead|customer|email|message|sales|sell|acquire/.test(text)) {
-    return { actionType: 'SEND_EXTERNAL_MESSAGE', provider: process.env.TIMEOE_OUTREACH_PROVIDER || 'webhook' };
-  }
+  if (/outreach|prospect|lead|customer|email|message|sales|sell|acquire/.test(text)) return { actionType: 'SEND_EXTERNAL_MESSAGE', provider: process.env.TIMEOE_OUTREACH_PROVIDER || 'webhook' };
   return null;
 }
 
@@ -31,15 +30,7 @@ async function runTask(command, task, agentId, context) {
     if (task.task_key === 'execute') {
       const classified = classifyBusinessAction(command.objective);
       if (classified) {
-        const action = await createBusinessAction({
-          businessId: command.business_id,
-          commandId: command.id,
-          taskId: task.id,
-          actionType: classified.actionType,
-          provider: classified.provider,
-          payload: { objective: command.objective, execution_mode: 'approval_gated' },
-          requestedBy: 'timeoe'
-        });
+        const action = await createBusinessAction({ businessId: command.business_id, commandId: command.id, taskId: task.id, actionType: classified.actionType, provider: classified.provider, payload: { objective: command.objective, execution_mode: 'approval_gated' }, requestedBy: 'timeoe' });
         const waiting = action.status === 'PENDING_APPROVAL';
         const result = { kind: 'BUSINESS_ACTION', action_id: action.id, status: action.status, approval_required: action.requires_approval, external_effect: action.external_effect };
         const { error } = await supabase.from('timeoe_execution_tasks').update({ state: waiting ? 'WAITING' : 'VERIFIED', result, completed_at: waiting ? null : new Date().toISOString(), error: null }).eq('id', task.id);
@@ -52,7 +43,6 @@ async function runTask(command, task, agentId, context) {
       await emit(command.id, task.id, agentId, 'TASK_VERIFIED', 'VERIFIED', { task_key: task.task_key, result });
       return result;
     }
-
     const worker = WORKERS[task.task_key];
     if (!worker) throw new Error(`No worker registered for ${task.task_key}`);
     const result = worker({ ...(task.input || {}), ...context });
@@ -70,7 +60,8 @@ async function runTask(command, task, agentId, context) {
   }
 }
 
-export async function POST(_request, { params }) {
+export async function POST(request, { params }) {
+  if (!workerAuthorized(request)) return NextResponse.json({ error: 'Unauthorized execution worker' }, { status: 401 });
   const commandId = params.id;
   try {
     const { data: command, error: commandError } = await supabase.from('timeoe_commands').select('*').eq('id', commandId).single();
