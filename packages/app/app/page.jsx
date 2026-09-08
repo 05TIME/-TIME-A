@@ -16,6 +16,7 @@ const mapStatus=s=>({queued:'QUEUED',running:'RUNNING',waiting:'WAITING',verifie
 export default function Page(){
   const[nodes,setNodes]=useState(initial),[goal,setGoal]=useState(''),[events,setEvents]=useState([]),[actions,setActions]=useState([]),[metrics,setMetrics]=useState({pending_approvals:0,completed_actions:0,verified_revenue:0}),[busy,setBusy]=useState(false),[error,setError]=useState('');
   const[email,setEmail]=useState(''),[password,setPassword]=useState(''),[user,setUser]=useState(null),[authBusy,setAuthBusy]=useState(false),[authMessage,setAuthMessage]=useState('');
+  const[business,setBusiness]=useState(null),[businessBusy,setBusinessBusy]=useState(false);
 
   const authHeaders=async()=>{
     const {data}=await supabase.auth.getSession();
@@ -31,6 +32,7 @@ export default function Page(){
     ]);
     if(ev)setEvents(ev.map(x=>({id:x.id,type:x.event_type,message:x.payload?.message||x.state||x.event_type,time:new Date(x.created_at).toLocaleTimeString()})));
     if(latestCommand){
+      setBusiness({id:latestCommand.business_id});
       const {data:tasks}=await supabase.from('timeoe_execution_tasks').select('*').eq('command_id',latestCommand.id).order('created_at');
       setNodes(tasks?.length?initial.map((n,i)=>i<tasks.length?{...n,state:mapStatus(tasks[i].state)}:n):initial);
     } else setNodes(initial);
@@ -39,8 +41,8 @@ export default function Page(){
 
   useEffect(()=>{
     let alive=true;
-    supabase.auth.getSession().then(({data})=>{if(alive)setUser(data?.session?.user||null)});
-    const auth=supabase.auth.onAuthStateChange((_event,session)=>{if(alive)setUser(session?.user||null)});
+    supabase.auth.getSession().then(({data})=>{if(alive){setUser(data?.session?.user||null);if(data?.session?.user)load()}});
+    const auth=supabase.auth.onAuthStateChange((_event,session)=>{if(alive){setUser(session?.user||null);if(session?.user)load();else{setBusiness(null);setEvents([]);setActions([]);setNodes(initial)}}});
     load();
     const channel=supabase.channel('timeoe-live')
       .on('postgres_changes',{event:'*',schema:'public',table:'timeoe_events'},payload=>{const x=payload.new;if(!x||!alive)return;setEvents(e=>[{id:x.id,type:x.event_type,message:x.payload?.message||x.state||x.event_type,time:new Date(x.created_at||Date.now()).toLocaleTimeString()},...e].slice(0,20));})
@@ -57,11 +59,21 @@ export default function Page(){
       const result=mode==='signup'?await supabase.auth.signUp({email:email.trim(),password}):await supabase.auth.signInWithPassword({email:email.trim(),password});
       if(result.error)throw result.error;
       if(mode==='signup'&&!result.data.session)setAuthMessage('Account created. Check your email if confirmation is required.');
-      else setAuthMessage('Authenticated. TIMEŒ COMMAND is ready.');
+      else setAuthMessage('Authenticated. Initialize the business context, then execute.');
     }catch(e){setAuthMessage(e.message||'Authentication failed')}finally{setAuthBusy(false)}
   };
 
   const signOut=async()=>{await supabase.auth.signOut();setAuthMessage('Signed out');};
+
+  const initializeBusiness=async()=>{
+    setBusinessBusy(true);setError('');
+    try{
+      const headers={...await authHeaders(),'content-type':'application/json'};
+      const r=await fetch('/api/businesses/bootstrap',{method:'POST',headers});
+      const j=await r.json();if(!r.ok)throw new Error(j.error||'Business initialization failed');
+      setBusiness(j.business);setAuthMessage(j.created?'TIMEŒ business initialized.':'Existing TIMEŒ business loaded.');await load();
+    }catch(e){setError(e.message)}finally{setBusinessBusy(false)}
+  };
 
   const submit=async()=>{
     if(!goal.trim()||busy)return;
@@ -92,13 +104,15 @@ export default function Page(){
 
     <section className="panel" style={{marginTop:18}}>
       <h2>AUTHENTICATION</h2>
-      {user?<div className="event"><b>AUTHENTICATED</b><span>{user.email}</span><button onClick={signOut}>SIGN OUT</button></div>:
+      {user?<div className="event"><b>AUTHENTICATED</b><span>{user.email}</span>{business&&<span>BUSINESS READY</span>}<button onClick={signOut}>SIGN OUT</button></div>:
         <div className="command" style={{margin:'0'}}><input value={email} onChange={e=>setEmail(e.target.value)} placeholder="Email" type="email"/><input value={password} onChange={e=>setPassword(e.target.value)} placeholder="Password" type="password"/><button disabled={authBusy} onClick={()=>authenticate('signin')}>{authBusy?'WORKING…':'SIGN IN'}</button><button disabled={authBusy} onClick={()=>authenticate('signup')}>CREATE ACCOUNT</button></div>}
+      {user&&!business&&<div className="event" style={{marginTop:10}}><span>Business context is required before commands can run.</span><button disabled={businessBusy} onClick={initializeBusiness}>{businessBusy?'INITIALIZING…':'INITIALIZE BUSINESS'}</button></div>}
       {authMessage&&<div className="empty" style={{marginTop:10}}>{authMessage}</div>}
     </section>
 
-    <section className="command"><input value={goal} onChange={e=>setGoal(e.target.value)} onKeyDown={e=>e.key==='Enter'&&submit()} placeholder="Command TIMEŒ… e.g. Find 20 qualified leads and prepare outreach" disabled={!user}/><button disabled={busy||!user} onClick={submit}>{busy?'EXECUTING…':'EXECUTE →'}</button></section>
+    <section className="command"><input value={goal} onChange={e=>setGoal(e.target.value)} onKeyDown={e=>e.key==='Enter'&&submit()} placeholder="Command TIMEŒ… e.g. Find 20 qualified leads and prepare outreach" disabled={!user||!business}/><button disabled={busy||!user||!business} onClick={submit}>{busy?'EXECUTING…':'EXECUTE →'}</button></section>
     {!user&&<div className="empty">Authenticate above to execute persisted TIMEŒ commands.</div>}
+    {user&&!business&&<div className="empty">Initialize the business context to unlock command execution.</div>}
     {error&&<div className="error">{error}</div>}
 
     <section className="graph"><div className="grid"/>{nodes.map(n=><div key={n.id} className={`node ${String(n.state).toLowerCase()}`} style={{left:`${n.x}%`,top:`${n.y}%`}}><strong>{n.label}</strong><small>{n.state}</small></div>)}<div className="edges">COMMAND ─── PLAN ─── EXECUTE ─── VERIFY ─── ADAPT ─── SCALE</div></section>
