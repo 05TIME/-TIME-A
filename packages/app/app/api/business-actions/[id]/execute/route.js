@@ -15,6 +15,10 @@ async function completeLinkedTask(action, result) {
   await emit(action, 'TASK_VERIFIED', 'VERIFIED', { task_id: action.task_id, business_action_id: action.id, result });
 }
 
+function parseAdapterResponse(text) {
+  try { return JSON.parse(text); } catch (_) { return { raw_response: text.slice(0, 4000) }; }
+}
+
 export async function POST(_request, { params }) {
   let action;
   try {
@@ -42,11 +46,17 @@ export async function POST(_request, { params }) {
     const text = await response.text();
     if (!response.ok) throw new Error(`Provider adapter returned ${response.status}: ${text.slice(0, 500)}`);
 
-    const result = { provider: action.provider, response: text.slice(0, 4000) };
+    const adapterResult = parseAdapterResponse(text);
+    const result = { provider: action.provider, adapter: adapterResult };
     await supabase.from('timeoe_business_actions').update({ status: 'COMPLETED', result, completed_at: new Date().toISOString(), error: null }).eq('id', action.id);
     await emit(action, 'ACTION_COMPLETED', 'COMPLETED', { action_id: action.id, provider: action.provider, result });
     await completeLinkedTask(action, result);
-    return NextResponse.json({ action_id: action.id, status: 'COMPLETED', result });
+
+    const verifiedSale = adapterResult.verified_sale === true;
+    if (verifiedSale && Number.isFinite(Number(adapterResult.amount)) && Number(adapterResult.amount) > 0) {
+      await emit(action, 'SALE_VERIFIED', 'VERIFIED', { action_id: action.id, amount: Number(adapterResult.amount), currency: adapterResult.currency || action.currency });
+    }
+    return NextResponse.json({ action_id: action.id, status: 'COMPLETED', result, revenue_eligible: verifiedSale });
   } catch (error) {
     try {
       if (!action) {
