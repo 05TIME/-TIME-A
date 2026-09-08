@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import { getAuthenticatedUser } from '../../../lib/auth';
 
-const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY, { auth: { autoRefreshToken: false, persistSession: false } });
+const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL, process.env.SUPABASE_SECRET_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY, { auth: { autoRefreshToken: false, persistSession: false } });
 
 export async function POST(request) {
   try {
@@ -11,7 +11,7 @@ export async function POST(request) {
 
     const body = await request.json();
     const objective = String(body.objective || '').trim();
-    const businessId = body.business_id || null;
+    const businessId = body.business_id || process.env.TIMEOE_DEFAULT_BUSINESS_ID || null;
     if (!objective) return NextResponse.json({ error: 'objective is required' }, { status: 400 });
 
     const { data: command, error: commandError } = await supabase.from('timeoe_commands').insert({ objective, business_id: businessId, status: 'QUEUED', plan: { source: 'timeoe-command-center', requested_by: user.id } }).select().single();
