@@ -3,11 +3,11 @@ import { supabaseAdmin, emitBusinessEvent } from '../../../../lib/business-actio
 import { recordVerifiedRevenue } from '../../../../lib/revenue';
 import { getAuthenticatedUser } from '../../../../lib/auth';
 
-export async function POST(_request, { params }) {
+export async function POST(request, { params }) {
   let action;
   let actionLocked = false;
   try {
-    const user = await getAuthenticatedUser();
+    const user = await getAuthenticatedUser(request);
     if (!user) return NextResponse.json({ error: 'Authentication required' }, { status: 401 });
 
     const { data, error } = await supabaseAdmin.from('timeoe_business_actions').select('*').eq('id', params.id).single();
