@@ -1,11 +1,15 @@
 import { NextResponse } from 'next/server';
 import { supabaseAdmin, emitBusinessEvent } from '../../../../lib/business-actions';
 import { recordVerifiedRevenue } from '../../../../lib/revenue';
+import { getAuthenticatedUser } from '../../../../lib/auth';
 
 export async function POST(_request, { params }) {
   let action;
   let actionLocked = false;
   try {
+    const user = await getAuthenticatedUser();
+    if (!user) return NextResponse.json({ error: 'Authentication required' }, { status: 401 });
+
     const { data, error } = await supabaseAdmin.from('timeoe_business_actions').select('*').eq('id', params.id).single();
     if (error) throw error;
     action = data;
@@ -23,7 +27,7 @@ export async function POST(_request, { params }) {
     actionLocked = true;
     action = lockedAction;
 
-    await emitBusinessEvent(action.command_id, action.task_id, 'ACTION_EXECUTING', 'RUNNING', { action_id: action.id, provider: action.provider });
+    await emitBusinessEvent(action.command_id, action.task_id, 'ACTION_EXECUTING', 'RUNNING', { action_id: action.id, provider: action.provider, executed_by: user.id });
 
     const adapterKey = `TIMEOE_${String(action.provider).toUpperCase()}_ADAPTER_URL`;
     const adapterUrl = process.env[adapterKey];
@@ -43,7 +47,7 @@ export async function POST(_request, { params }) {
     const { data: completedAction, error: completionError } = await supabaseAdmin.from('timeoe_business_actions').update({ status: 'COMPLETED', result, completed_at: new Date().toISOString(), error: null }).eq('id', action.id).eq('status', 'EXECUTING').select().single();
     if (completionError) throw completionError;
     action = completedAction;
-    await emitBusinessEvent(action.command_id, action.task_id, 'ACTION_COMPLETED', 'COMPLETED', { action_id: action.id, provider: action.provider, result });
+    await emitBusinessEvent(action.command_id, action.task_id, 'ACTION_COMPLETED', 'COMPLETED', { action_id: action.id, provider: action.provider, result, completed_by: user.id });
     if (action.task_id) {
       await supabaseAdmin.from('timeoe_execution_tasks').update({ state: 'VERIFIED', result: { business_action_id: action.id, ...result }, completed_at: new Date().toISOString(), error: null }).eq('id', action.task_id);
       await emitBusinessEvent(action.command_id, action.task_id, 'TASK_VERIFIED', 'VERIFIED', { task_id: action.task_id, business_action_id: action.id, result });
@@ -62,6 +66,6 @@ export async function POST(_request, { params }) {
       await emitBusinessEvent(action.command_id, action.task_id, 'ACTION_FAILED', 'FAILED', { action_id: action.id, error: error.message });
       if (action.task_id) await supabaseAdmin.from('timeoe_execution_tasks').update({ state: 'FAILED', error: error.message }).eq('id', action.task_id);
     }
-    return NextResponse.json({ error: error.message || 'Business action failed' }, { status: 500 });
+    return NextResponse.json({ error: error.message || 'Business action failed', actor: 'authenticated-user' }, { status: 500 });
   }
 }
