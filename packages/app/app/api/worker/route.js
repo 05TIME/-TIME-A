@@ -7,16 +7,17 @@ function classify(objective = '') {
   return null;
 }
 
-async function runCommand(command, requestUrl) {
+async function runCommand(command, requestUrl, workerSecret) {
   const url = new URL(`/api/commands/${command.id}/execute`, requestUrl);
-  const response = await fetch(url, { method: 'POST', headers: { 'content-type': 'application/json' } });
+  const response = await fetch(url, { method: 'POST', headers: { 'content-type': 'application/json', 'x-timeoe-worker-secret': workerSecret } });
   return { status: response.status, body: await response.json().catch(() => ({})) };
 }
 
 export async function POST(request) {
   try {
     const secret = process.env.TIMEOE_WORKER_SECRET;
-    if (secret && request.headers.get('x-timeoe-worker-secret') !== secret) return NextResponse.json({ error: 'Unauthorized worker' }, { status: 401 });
+    if (!secret) return NextResponse.json({ error: 'TIMEOE_WORKER_SECRET is not configured' }, { status: 503 });
+    if (request.headers.get('x-timeoe-worker-secret') !== secret) return NextResponse.json({ error: 'Unauthorized worker' }, { status: 401 });
 
     const limit = Math.min(Math.max(Number(new URL(request.url).searchParams.get('limit') || 5), 1), 20);
     const { data: commands, error } = await supabaseAdmin.from('timeoe_commands').select('*').in('status', ['QUEUED', 'RUNNING', 'WAITING']).order('created_at', { ascending: true }).limit(limit);
@@ -32,7 +33,7 @@ export async function POST(request) {
           results.push({ command_id: command.id, status: 'WAITING', reason: 'business_id_required' });
           continue;
         }
-        results.push({ command_id: command.id, ...(await runCommand(command, request.url)) });
+        results.push({ command_id: command.id, ...(await runCommand(command, request.url, secret)) });
       } catch (error) {
         await emitBusinessEvent(command.id, null, 'WORKER_COMMAND_ERROR', 'FAILED', { error: error.message });
         results.push({ command_id: command.id, status: 500, error: error.message });
