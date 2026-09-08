@@ -1,0 +1,10 @@
+{
+  "/_global-error/page": "/_global-error",
+  "/_not-found/page": "/_not-found",
+  "/api/business-actions/[id]/approve/route": "/api/business-actions/[id]/approve",
+  "/api/business-actions/[id]/execute/route": "/api/business-actions/[id]/execute",
+  "/api/business-actions/route": "/api/business-actions",
+  "/api/commands/[id]/execute/route": "/api/commands/[id]/execute",
+  "/api/commands/route": "/api/commands",
+  "/page": "/"
+}
