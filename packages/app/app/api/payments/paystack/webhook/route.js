@@ -9,7 +9,9 @@ export async function POST(request) {
     const raw = await request.text();
     const signature = request.headers.get('x-paystack-signature') || '';
     const expected = crypto.createHmac('sha512', secret).update(raw).digest('hex');
-    if (!signature || !crypto.timingSafeEqual(Buffer.from(signature), Buffer.from(expected))) return NextResponse.json({ error: 'Invalid signature' }, { status: 401 });
+    const supplied = Buffer.from(signature, 'utf8');
+    const calculated = Buffer.from(expected, 'utf8');
+    if (!signature || supplied.length !== calculated.length || !crypto.timingSafeEqual(supplied, calculated)) return NextResponse.json({ error: 'Invalid signature' }, { status: 401 });
 
     const event = JSON.parse(raw);
     if (event.event !== 'charge.success') return NextResponse.json({ received: true });
@@ -34,7 +36,8 @@ export async function POST(request) {
       const description = `TIMEOE payment | reference:${reference}`;
       const { data: existing } = await supabaseAdmin.from('transactions').select('id').eq('business_id', order.business_id).eq('category', 'TIMEOE_REVENUE').eq('description', description).maybeSingle();
       if (!existing) {
-        await supabaseAdmin.from('transactions').insert({ business_id: order.business_id, type: 'INCOME', amount: paidAmount, category: 'TIMEOE_REVENUE', description, occurred_at: new Date().toISOString() });
+        const { error: transactionError } = await supabaseAdmin.from('transactions').insert({ business_id: order.business_id, type: 'INCOME', amount: paidAmount, category: 'TIMEOE_REVENUE', description, occurred_at: new Date().toISOString() });
+        if (transactionError) throw transactionError;
         await emitBusinessEvent(null, null, 'REVENUE_VERIFIED', 'VERIFIED', { reference, payment_order_id: order.id, amount: paidAmount, currency: order.currency, product_code: order.product_code });
       }
     }
