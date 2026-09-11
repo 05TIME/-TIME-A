@@ -1,5 +1,16 @@
 import { NextResponse } from 'next/server';
 import { supabaseAdmin, createBusinessAction, emitBusinessEvent } from '../../../lib/business-actions';
+import { getAuthenticatedUser } from '../../../lib/auth';
+
+async function requireBusinessMember(request, businessId) {
+  const user = await getAuthenticatedUser(request);
+  if (!user) return { error: NextResponse.json({ error: 'Authentication required' }, { status: 401 }) };
+  const { data: membership, error } = await supabaseAdmin
+    .from('memberships').select('id,role').eq('business_id', businessId).eq('user_id', user.id).maybeSingle();
+  if (error) throw error;
+  if (!membership) return { error: NextResponse.json({ error: 'Business access denied' }, { status: 403 }) };
+  return { user, membership };
+}
 
 export async function POST(request) {
   try {
@@ -10,6 +21,9 @@ export async function POST(request) {
 
     const { data: campaign, error: campaignError } = await supabaseAdmin.from('timeoe_content_campaigns').select('*').eq('id', campaign_id).single();
     if (campaignError) throw campaignError;
+    const access = await requireBusinessMember(request, campaign.business_id);
+    if (access.error) return access.error;
+
     if (external_event_id) {
       const { data: duplicate } = await supabaseAdmin.from('timeoe_content_attribution').select('*').eq('external_event_id', external_event_id).maybeSingle();
       if (duplicate) return NextResponse.json({ status: 'ALREADY_RECORDED', attribution: duplicate });
@@ -43,7 +57,7 @@ export async function POST(request) {
           revenue_share_percent: creatorSharePercent,
           performance_based: true
         },
-        requestedBy: 'timeoe_content_manager'
+        requestedBy: `timeoe_content_manager:${access.user.id}`
       });
       const { error: payoutLinkError } = await supabaseAdmin.from('timeoe_content_attribution').update({
         payout_action_id: payoutAction.id,
