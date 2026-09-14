@@ -29,7 +29,13 @@ export async function emitBusinessEvent(commandId, taskId, eventType, state, pay
   if (error) throw error;
 }
 
-export async function findExistingBusinessAction({ commandId, taskId }) {
+export async function findExistingBusinessAction({ commandId, taskId, idempotencyKey }) {
+  if (idempotencyKey) {
+    const { data, error } = await supabaseAdmin.from('timeoe_business_actions')
+      .select('*').eq('idempotency_key', idempotencyKey).limit(1).maybeSingle();
+    if (error) throw error;
+    if (data) return data;
+  }
   if (!commandId || !taskId) return null;
   const { data, error } = await supabaseAdmin.from('timeoe_business_actions')
     .select('*').eq('command_id', commandId).eq('task_id', taskId)
@@ -38,9 +44,9 @@ export async function findExistingBusinessAction({ commandId, taskId }) {
   return data || null;
 }
 
-export async function createBusinessAction({ businessId, commandId = null, taskId = null, actionType, provider = 'internal', payload = {}, amount = 0, currency = 'USD', requestedBy = 'timeoe' }) {
+export async function createBusinessAction({ businessId, commandId = null, taskId = null, actionType, provider = 'internal', payload = {}, amount = 0, currency = 'USD', requestedBy = 'timeoe', idempotencyKey = null }) {
   if (!businessId || !actionType) throw new Error('businessId and actionType are required');
-  const existing = await findExistingBusinessAction({ commandId, taskId });
+  const existing = await findExistingBusinessAction({ commandId, taskId, idempotencyKey });
   if (existing) return existing;
 
   const normalizedAmount = Number(amount || 0);
@@ -60,11 +66,17 @@ export async function createBusinessAction({ businessId, commandId = null, taskI
   const status = approvalRequired ? 'PENDING_APPROVAL' : 'READY';
   const { data: action, error } = await supabaseAdmin.from('timeoe_business_actions').insert({
     business_id: businessId, command_id: commandId, task_id: taskId,
-    action_type: actionType, provider,
+    action_type: actionType, provider, idempotency_key: idempotencyKey,
     payload: { ...payload, amount: normalizedAmount, currency, requested_by: requestedBy },
     status, requires_approval: approvalRequired, external_effect: true
   }).select().single();
-  if (error) throw error;
+  if (error) {
+    if (error.code === '23505' && idempotencyKey) {
+      const raced = await findExistingBusinessAction({ commandId: null, taskId: null, idempotencyKey });
+      if (raced) return raced;
+    }
+    throw error;
+  }
   await emitBusinessEvent(commandId, taskId, approvalRequired ? 'ACTION_APPROVAL_REQUIRED' : 'ACTION_READY', status, {
     action_id: action.id, action_type: actionType, provider, amount: normalizedAmount, currency
   });
