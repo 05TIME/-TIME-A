@@ -19,6 +19,8 @@ export async function POST(request) {
       return NextResponse.json({ business: existingMembership.businesses, membership: existingMembership, created: false });
     }
 
+    // The unique user/business membership constraint is the final concurrency guard.
+    // Two simultaneous first requests may race; the loser re-reads the winning membership.
     const { data: business, error: businessError } = await supabaseAdmin
       .from('businesses')
       .insert({
@@ -45,7 +47,23 @@ export async function POST(request) {
       .insert({ business_id: business.id, user_id: user.id, role: 'owner' })
       .select()
       .single();
-    if (newMembershipError) throw newMembershipError;
+    if (newMembershipError) {
+      if (newMembershipError.code === '23505') {
+        const { data: winner, error: winnerError } = await supabaseAdmin
+          .from('memberships')
+          .select('business_id,role,businesses(*)')
+          .eq('user_id', user.id)
+          .order('created_at', { ascending: true })
+          .limit(1)
+          .maybeSingle();
+        if (winnerError) throw winnerError;
+        if (winner?.business_id) {
+          await supabaseAdmin.from('businesses').delete().eq('id', business.id);
+          return NextResponse.json({ business: winner.businesses, membership: winner, created: false });
+        }
+      }
+      throw newMembershipError;
+    }
 
     const { error: controlError } = await supabaseAdmin
       .from('timeoe_cash_flow_controls')
