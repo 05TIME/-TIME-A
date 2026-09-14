@@ -14,17 +14,19 @@ export async function recordVerifiedRevenue({ action, amount, currency = 'USD', 
   if (existing) return { status: 'ALREADY_RECORDED', transaction: existing };
 
   const { data: transaction, error: transactionError } = await supabaseAdmin.from('transactions').insert({
-    business_id: action.business_id, type: 'INCOME', amount: value, category: 'TIMEOE_REVENUE', description, occurred_at: occurredAt
+    business_id: action.business_id, type: 'income', amount: value, category: 'TIMEOE_REVENUE', description, occurred_at: occurredAt
   }).select().single();
   if (transactionError) {
-    // A unique constraint may win a concurrent race; resolve it as an idempotent success.
     const { data: raced } = await supabaseAdmin.from('transactions').select('*')
       .eq('business_id', action.business_id).eq('category', 'TIMEOE_REVENUE').eq('description', description).maybeSingle();
     if (raced) return { status: 'ALREADY_RECORDED', transaction: raced };
     throw transactionError;
   }
 
-  const day = occurredAt.slice(0, 10);
+  const { data: business, error: businessError } = await supabaseAdmin.from('businesses')
+    .select('current_day').eq('id', action.business_id).single();
+  if (businessError) throw businessError;
+  const day = Number(business.current_day || 1);
   const { data: previous, error: previousError } = await supabaseAdmin.from('kpi_snapshots').select('*')
     .eq('business_id', action.business_id).eq('day', day).maybeSingle();
   if (previousError) throw previousError;
