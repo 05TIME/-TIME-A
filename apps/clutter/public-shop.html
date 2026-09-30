@@ -1,0 +1,8 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Clutter Shop</title>
+<style>body{font-family:Arial;margin:0;background:#f5f6f8;color:#111827}.wrap{max-width:1100px;margin:auto;padding:24px}.hero,.card{background:#fff;border:1px solid #e5e7eb;border-radius:18px;padding:20px}.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(250px,1fr));gap:14px}.price{font-size:22px;font-weight:900}.muted{color:#667085}.btn{display:inline-block;padding:11px 14px;background:#111827;color:white;border-radius:10px;text-decoration:none}@media(max-width:600px){.wrap{padding:14px}}</style></head>
+<body><main class="wrap"><section class="hero"><h1>CLUTTER</h1><p class="muted">Verified second-hand products. Buy smart. Verify. Resell.</p></section><h2>Available now</h2><section id="shop" class="grid"></section></main>
+<script>
+const demo=[{title:'Verified iPhone 15 Pro',price:'₦790,000',category:'Phones'},{title:'Nexus Double Door Freezer',price:'₦560,000',category:'Appliances'},{title:'Hisense Inverter AC 1HP',price:'₦260,000',category:'Appliances'}];
+document.querySelector('#shop').innerHTML=demo.map(x=>`<article class="card"><div class="muted">${x.category}</div><h3>${x.title}</h3><div class="price">${x.price}</div><p>Verified by Clutter</p><a class="btn" href="https://wa.me/?text=I%20want%20to%20buy%20${encodeURIComponent(x.title)}">WhatsApp to buy</a></article>`).join('');
+</script></body></html>
