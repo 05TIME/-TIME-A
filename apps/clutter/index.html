@@ -14,4 +14,4 @@
 <div id="clutter-upload-progress" class="media-help"></div><div id="clutter-submit-result"></div>
 <div class="modal-actions"><button type="button" onclick="Clutter.closeIntake()">Cancel</button><button class="primary" type="submit">Submit for verification</button></div>
 </form></div>
-<script src="./app.js"></script></body></html>
+<script src="./app.js"></script><script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script><script type="module">import { createSupabaseClient } from "./supabase-client.js"; import { createPortal } from "./portal.js"; import { uploadItemMedia } from "./media.js"; import { createSellerForm } from "./seller-form.js"; window.createSupabaseClient=createSupabaseClient; window.createPortal=createPortal; window.uploadItemMedia=uploadItemMedia; window.addEventListener("DOMContentLoaded",()=>{const supabase=createSupabaseClient(); const portal=createPortal(supabase); Clutter.init(portal); createSellerForm({supabase,submitItem:portal.submitItem,uploadItemMedia,onSubmitted:()=>Clutter.refresh()});});</script></body></html>
