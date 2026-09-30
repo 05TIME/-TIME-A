@@ -7,12 +7,13 @@ export function createPortal(supabase) {
   }
 
   async function signIn(email, password) {
-    const { data, error } = await supabase.auth.signInWithPassword({email, password});
+    const { data, error } = await supabase.auth.signInWithPassword({ email, password });
     if (error) throw error;
     return data.user;
   }
 
-  async function signUp(email, password, fullName, role='seller') {
+  // Public self-registration is always a seller. Staff roles must be assigned by controlled administration.
+  async function signUp(email, password, fullName) {
     const { data, error } = await supabase.auth.signUp({
       email, password,
       options: { data: { full_name: fullName } }
@@ -20,7 +21,7 @@ export function createPortal(supabase) {
     if (error) throw error;
     if (data.user) {
       const { error: profileError } = await supabase.from('profiles').upsert({
-        id: data.user.id, full_name: fullName, role
+        id: data.user.id, full_name: fullName, role: 'seller'
       });
       if (profileError) throw profileError;
     }
@@ -31,23 +32,31 @@ export function createPortal(supabase) {
     const u = await user();
     if (!u) throw new Error('Please sign in first.');
     const { data, error } = await supabase.from('items').insert({
-      seller_id:u.id, title:form.title, category:form.category,
-      description:form.description || '', condition:form.condition || '',
-      location:form.location || '', seller_asking_price:form.askingPrice || null,
-      status:'under_review'
+      seller_id: u.id,
+      title: form.title,
+      category: form.category,
+      description: form.description || '',
+      condition: form.condition || '',
+      location: form.location || '',
+      seller_asking_price: form.askingPrice || null,
+      status: 'under_review'
     }).select().single();
     if (error) throw error;
     return data;
   }
 
   async function staffQueue() {
-    const { data, error } = await supabase.from('items').select('*').order('created_at',{ascending:false});
+    const { data, error } = await supabase.from('items')
+      .select('*, item_media(*)')
+      .order('created_at', { ascending: false });
     if (error) throw error;
     return data || [];
   }
 
   async function updateItem(id, patch) {
-    const { data, error } = await supabase.from('items').update({...patch, updated_at:new Date().toISOString()}).eq('id',id).select().single();
+    const { data, error } = await supabase.from('items')
+      .update({ ...patch, updated_at: new Date().toISOString() })
+      .eq('id', id).select().single();
     if (error) throw error;
     return data;
   }
