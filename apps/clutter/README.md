@@ -1,7 +1,14 @@
-# Clutter MVP
+# Clutter
 
-Standalone buy-verify-approve-resell operating app.
+Standalone buy-and-resell operating app.
 
-Flow: seller intake -> agent verification -> management approval -> inventory -> resale -> WhatsApp.
+## Development boundary
+- GitHub: source code and version control.
+- Supabase: authentication, PostgreSQL data, and private media storage.
+- Vercel: intentionally not used.
 
-The first UI is intentionally lightweight and phone-friendly. Production persistence, authentication, image/video storage, payments, and WhatsApp API automation can be added after the workflow is validated.
+## Workflow
+Seller submission -> Agent verification -> Manager approval -> Purchase -> Inventory -> Resale -> Sale.
+
+## Backend
+Use a dedicated Clutter Supabase project only. Do not reuse TIMEŒ production databases.
