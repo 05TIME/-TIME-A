@@ -36,7 +36,7 @@ jobs:
           NEXT_PUBLIC_BASE_PATH: /-TIME-A
           NEXT_PUBLIC_TIMEOE_API_URL: https://time-randy.onrender.com
           NEXT_PUBLIC_SUPABASE_URL: https://tkqxqfkydxqxexgucgjr.supabase.co
-          NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY }}
+          NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY || vars.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY }}
         run: |
           mv app/api /tmp/timeoe-api
           mv proxy.js /tmp/timeoe-proxy.js
