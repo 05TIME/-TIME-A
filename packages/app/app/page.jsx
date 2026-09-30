@@ -11,6 +11,8 @@ const initial=[
   {id:'adapt',label:'ADAPT',x:82,y:28,state:'IDLE'},
   {id:'scale',label:'SCALE',x:92,y:58,state:'STANDBY'}
 ];
+const API_BASE=(process.env.NEXT_PUBLIC_TIMEOE_API_URL||'').replace(/\/$/,'');
+const apiUrl=path=>`${API_BASE}${path}`;
 const mapStatus=s=>({queued:'QUEUED',running:'RUNNING',waiting:'WAITING',verified:'VERIFIED',failed:'FAILED',retry:'RETRY',completed:'COMPLETED'}[String(s||'').toLowerCase()]||s||'UNKNOWN');
 
 export default function Page(){
@@ -69,7 +71,7 @@ export default function Page(){
     setBusinessBusy(true);setError('');
     try{
       const headers={...await authHeaders(),'content-type':'application/json'};
-      const r=await fetch('/api/businesses/bootstrap',{method:'POST',headers});
+      const r=await fetch(apiUrl('/api/businesses/bootstrap'),{method:'POST',headers});
       const j=await r.json();if(!r.ok)throw new Error(j.error||'Business initialization failed');
       setBusiness(j.business);setAuthMessage(j.created?'TIMEŒ business initialized.':'Existing TIMEŒ business loaded.');await load();
     }catch(e){setError(e.message)}finally{setBusinessBusy(false)}
@@ -80,7 +82,7 @@ export default function Page(){
     setBusy(true);setError('');
     try{
       const headers={...await authHeaders(),'content-type':'application/json'};
-      const r=await fetch('/api/commands',{method:'POST',headers,body:JSON.stringify({objective:goal})});
+      const r=await fetch(apiUrl('/api/commands'),{method:'POST',headers,body:JSON.stringify({objective:goal})});
       const j=await r.json();if(!r.ok)throw new Error(j.error||'Command rejected');
       setGoal('');await load();
     }catch(e){setError(e.message)}finally{setBusy(false)}
@@ -90,7 +92,7 @@ export default function Page(){
     setError('');
     try{
       const headers={...await authHeaders(),'content-type':'application/json'};
-      const r=await fetch(`/api/business-actions/${id}/${path}`,{method:'POST',headers,body:JSON.stringify(body)});
+      const r=await fetch(apiUrl(`/api/business-actions/${id}/${path}`),{method:'POST',headers,body:JSON.stringify(body)});
       const j=await r.json();if(!r.ok)throw new Error(j.error||`${path} failed`);await load();
     }catch(e){setError(e.message)}
   };
