@@ -1,0 +1,44 @@
+services:
+  - type: web
+    name: time-randy
+    runtime: node
+    plan: free
+    rootDir: .
+    buildCommand: npm ci && npm run build --workspace @timeoe/app
+    startCommand: npm run start --workspace @timeoe/app -- -p $PORT
+    healthCheckPath: /
+    envVars:
+      - key: NEXT_PUBLIC_SUPABASE_URL
+        value: https://tkqxqfkydxqxexgucgjr.supabase.co
+      - key: NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY
+        sync: false
+      - key: SUPABASE_SECRET_KEY
+        sync: false
+      - key: SUPABASE_SERVICE_ROLE_KEY
+        sync: false
+      - key: TIMEOE_DEFAULT_BUSINESS_ID
+        sync: false
+      - key: TIMEOE_OUTREACH_PROVIDER
+        value: webhook
+      - key: TIMEOE_WEBHOOK_ADAPTER_URL
+        sync: false
+      - key: TIMEOE_WORKER_SECRET
+        sync: false
+      - key: TIMEOE_APP_URL
+        sync: false
+      - key: TIMEOE_FRONTEND_ORIGIN
+        value: https://05time.github.io/-TIME-A
+      - key: WHATSAPP_ACCESS_TOKEN
+        sync: false
+      - key: WHATSAPP_PHONE_NUMBER_ID
+        sync: false
+      - key: WHATSAPP_VERIFY_TOKEN
+        sync: false
+      - key: WHATSAPP_GRAPH_API_VERSION
+        value: v23.0
+      - key: OPENAI_API_KEY
+        sync: false
+      - key: TIMEOE_AI_MODEL
+        value: gpt-5.6
+      - key: TIMEOE_WHATSAPP_SYSTEM_PROMPT
+        sync: false
