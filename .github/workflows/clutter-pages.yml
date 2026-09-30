@@ -1,0 +1,50 @@
+name: Deploy Clutter to GitHub Pages
+
+on:
+  push:
+    branches: [clutter-mvp]
+    paths:
+      - 'apps/clutter/**'
+      - '.github/workflows/clutter-pages.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: clutter-pages
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Clutter
+        uses: actions/checkout@v4
+        with:
+          ref: clutter-mvp
+
+      - name: Prepare static site
+        run: |
+          rm -rf _site
+          mkdir -p _site
+          cp -R apps/clutter/. _site/
+          touch _site/.nojekyll
+
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: _site
+
+  deploy:
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    runs-on: ubuntu-latest
+    needs: build
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
