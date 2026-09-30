@@ -1,0 +1,76 @@
+name: Deploy TIMEŒ frontend to GitHub Pages
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Setup Node
+        uses: actions/setup-node@v6
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Prepare static Next.js build
+        working-directory: packages/app
+        env:
+          NEXT_PUBLIC_BASE_PATH: /-TIME-A
+          NEXT_PUBLIC_TIMEOE_API_URL: https://time-randy.onrender.com
+          NEXT_PUBLIC_SUPABASE_URL: https://tkqxqfkydxqxexgucgjr.supabase.co
+          NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY }}
+        run: |
+          mv app/api /tmp/timeoe-api
+          mv proxy.js /tmp/timeoe-proxy.js
+          cat > next.config.mjs <<'EOF'
+          /** @type {import('next').NextConfig} */
+          const nextConfig = {
+            output: 'export',
+            trailingSlash: true,
+            basePath: process.env.NEXT_PUBLIC_BASE_PATH || '',
+            images: { unoptimized: true },
+            reactStrictMode: true,
+          };
+          export default nextConfig;
+          EOF
+          npm run build
+          mv /tmp/timeoe-api app/api
+          mv /tmp/timeoe-proxy.js proxy.js
+          touch out/.nojekyll
+
+      - name: Setup Pages
+        uses: actions/configure-pages@v5
+
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v4
+        with:
+          path: packages/app/out
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
