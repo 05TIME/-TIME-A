@@ -45,6 +45,7 @@ create table if not exists public.youtube_content_ideas (
 create table if not exists public.youtube_content_packages (
   id uuid primary key default gen_random_uuid(),
   idea_id uuid not null references public.youtube_content_ideas(id) on delete cascade,
+  business_id uuid references public.businesses(id) on delete cascade,
   version integer not null default 1,
   format text not null check (format in ('SHORT','LONG','LIVE','PODCAST')),
   script text,
@@ -62,6 +63,7 @@ create table if not exists public.youtube_content_packages (
 create table if not exists public.youtube_content_approvals (
   id uuid primary key default gen_random_uuid(),
   package_id uuid not null references public.youtube_content_packages(id) on delete cascade,
+  business_id uuid references public.businesses(id) on delete cascade,
   package_version integer not null,
   action text not null check (action in ('CONTENT_APPROVAL','PUBLISH_APPROVAL','COMMENT_REPLY_APPROVAL')),
   decision text not null check (decision in ('APPROVED','REJECTED')),
@@ -73,6 +75,7 @@ create table if not exists public.youtube_content_approvals (
 create table if not exists public.youtube_publishing_jobs (
   id uuid primary key default gen_random_uuid(),
   package_id uuid not null references public.youtube_content_packages(id) on delete cascade,
+  business_id uuid references public.businesses(id) on delete cascade,
   channel_id uuid not null references public.youtube_channels(id) on delete cascade,
   visibility text not null default 'private' check (visibility in ('private','unlisted','public')),
   scheduled_at timestamptz,
@@ -86,6 +89,7 @@ create table if not exists public.youtube_publishing_jobs (
 create table if not exists public.youtube_community_items (
   id uuid primary key default gen_random_uuid(),
   channel_id uuid not null references public.youtube_channels(id) on delete cascade,
+  business_id uuid references public.businesses(id) on delete cascade,
   youtube_comment_id text not null unique,
   youtube_video_id text,
   comment_text text not null,
@@ -99,6 +103,7 @@ create table if not exists public.youtube_community_items (
 create table if not exists public.youtube_analytics_snapshots (
   id uuid primary key default gen_random_uuid(),
   channel_id uuid not null references public.youtube_channels(id) on delete cascade,
+  business_id uuid references public.businesses(id) on delete cascade,
   youtube_video_id text,
   captured_at timestamptz not null default now(),
   impressions bigint,
