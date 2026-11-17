@@ -38,6 +38,8 @@ export default function YouTubeStudioPage() {
   const [format, setFormat] = useState('SHORT');
   const [loaded, setLoaded] = useState(false);
   const [tab, setTab] = useState('ideas');
+  const [youtubeConnected, setYoutubeConnected] = useState(false);
+  const [oauthMessage, setOauthMessage] = useState('');
 
   useEffect(() => {
     try {
@@ -53,6 +55,16 @@ export default function YouTubeStudioPage() {
   useEffect(() => {
     if (loaded) window.localStorage.setItem(STORAGE_KEY, JSON.stringify({ ideas, packages }));
   }, [ideas, packages, loaded]);
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('youtube_connected') === '1') {
+      setYoutubeConnected(true);
+      setOauthMessage('Google authorization completed. Your refresh token is encrypted in the server-side vault. No video has been published.');
+    } else if (params.get('youtube_error') === '1') {
+      setOauthMessage('YouTube could not be connected. Check the Google OAuth redirect URI and consent-screen setup, then try again.');
+    }
+  }, []);
 
   const counts = useMemo(() => ({
     ideas: ideas.length,
@@ -95,8 +107,9 @@ export default function YouTubeStudioPage() {
       </header>
 
       <section className="yt-notice">
-        <strong>STANDALONE MODE</strong>
-        <span>Grokbot is not connected. This workspace saves drafts in this browser. YouTube publishing and live analytics are not connected yet.</span>
+        <strong>YOUTUBE CONNECTION</strong>
+        <span>{oauthMessage || (youtubeConnected ? 'YouTube account connected. Public publishing remains disabled until a separate review and upload test.' : 'Connect the Google account that owns The African Record TV. This protected preview only requests channel read and video upload permission.')}</span>
+        <a className="yt-primary small yt-connect" href="/api/youtube/oauth/start">{youtubeConnected ? 'Reconnect channel' : 'Connect YouTube channel'}</a>
       </section>
 
       <section className="yt-stats">
@@ -170,9 +183,9 @@ export default function YouTubeStudioPage() {
         </div>
 
         <aside className="yt-side">
-          <section className="yt-panel"><h2>Agent operating status</h2><div className="yt-status-row"><span>Editorial planning</span><b className="ok">READY</b></div><div className="yt-status-row"><span>Local draft storage</span><b className="ok">ACTIVE</b></div><div className="yt-status-row"><span>Grokbot</span><b>DISCONNECTED</b></div><div className="yt-status-row"><span>YouTube OAuth</span><b>NOT CONNECTED</b></div><div className="yt-status-row"><span>Live analytics</span><b>NOT CONNECTED</b></div><div className="yt-status-row"><span>Auto publishing</span><b>DISABLED</b></div></section>
+          <section className="yt-panel"><h2>Agent operating status</h2><div className="yt-status-row"><span>Editorial planning</span><b className="ok">READY</b></div><div className="yt-status-row"><span>Local draft storage</span><b className="ok">ACTIVE</b></div><div className="yt-status-row"><span>Grokbot</span><b>DISCONNECTED</b></div><div className="yt-status-row"><span>YouTube OAuth</span><b className={youtubeConnected ? 'ok' : ''}>{youtubeConnected ? 'CONNECTED' : 'READY TO CONNECT'}</b></div><div className="yt-status-row"><span>Live analytics</span><b>NOT CONNECTED</b></div><div className="yt-status-row"><span>Auto publishing</span><b>DISABLED</b></div></section>
           <section className="yt-panel"><h2>Production principles</h2><ul className="yt-side-list"><li>Audience promise first</li><li>Strong opening in the first 10 seconds</li><li>Evidence before conclusions</li><li>Packaging must match the story</li><li>Review results after 14 days</li></ul></section>
-          <section className="yt-panel yt-help"><h2>Next connection</h2><p>To make this a multi-device agent, connect an active TIMEŒ Supabase project. Google OAuth and YouTube Analytics can follow after the content workflow is tested.</p></section>
+          <section className="yt-panel yt-help"><h2>Connection security</h2><p>Google refresh tokens are encrypted server-side. This preview cannot publish automatically. Human review and a private upload test remain required before any public release.</p></section>
         </aside>
       </section>
       <footer className="yt-footer">TIMEŒ GROWTH SYSTEM <span>•</span> THE AFRICAN RECORD TV <span>•</span> {loaded ? 'LOCAL WORKSPACE READY' : 'LOADING'}</footer>
