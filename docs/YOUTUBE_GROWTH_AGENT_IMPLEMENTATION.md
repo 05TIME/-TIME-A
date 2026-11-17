@@ -1,35 +1,38 @@
-# YouTube Growth Agent — Implementation Plan
+# YouTube Growth Agent — Implementation Status
 
 ## Confirmed channel configuration
 - Public channel URL: https://youtube.com/@theafricanrecordtv
 - Handle: @theafricanrecordtv
-- Content direction: mixed editorial content across African affairs, history/culture, business/innovation, technology and interviews/podcasts.
-- Schedule mode: analytics-led adaptive cadence.
-- Initial experiment: 3 Shorts + 1 long-form weekly, reviewed after 14 days. This is a starting test, not a permanent quota.
+- Primary timezone: Africa/Lagos
+- Editorial mix: African affairs/accountability, history/culture, business/innovation, technology/future ideas, people/interviews/podcasts.
+- Initial cadence: 3 Shorts + 1 long-form video per week, reviewed after 14 days.
 
-## Architecture
-TIMEŒ COMMAND orchestrates the workflow. Grokbot supplies trend intelligence, research leads, source notes and creative proposals. The YouTube Growth Agent turns approved ideas into scripts, metadata, production briefs, private uploads, scheduled publications and performance reports. Analytics feedback is sent back to Grokbot with sample sizes and baselines.
+## Standalone implementation
+- App route: `packages/app/app/youtube/page.jsx`
+- Route stylesheet: `packages/app/app/youtube/youtube.css`
+- Open the workspace at `/youtube` on the TIMEŒ preview.
+- Idea desk: add and remove topics, choose an editorial pillar and select Shorts, long-form or podcast format.
+- Production workspace: create structured briefs with hook prompts, title variants, story outline, thumbnail direction and editorial checklist.
+- Strategy view: five content pillars and initial publishing cadence.
+- Draft state: saved in this browser's local storage. It is a single-device prototype, not shared database storage.
+- All YouTube publishing and live analytics functions remain disabled.
 
-## Current implementation in this branch
-- Agent architecture and safety requirements: `docs/YOUTUBE_GROWTH_AGENT.md`
-- Grokbot event contract: `docs/GROKBOT_YOUTUBE_CONTRACT.md`
-- Channel profile: `docs/THE_AFRICAN_RECORD_TV_CHANNEL_PROFILE.md`
-- Pure planning/scoring/cadence primitives: `packages/engine/src/youtube-growth.js`
-- Tests: `packages/engine/src/youtube-growth.test.js`
+## Integration status
+- Grokbot: deliberately not included in this release. No Grokbot route, secret or dependency is required.
+- Supabase: the connected account currently lists TIMEO 0.5, edo-diaspora, TIMEOE LIVE and Clutter as INACTIVE. No database migration has been applied. Select/reactivate the intended project before enabling shared persistence.
+- Google OAuth / YouTube API: not configured. No channel ownership verification, uploads, scheduled publishing, comments or live analytics are active.
+- AI drafting: current production briefs are deterministic editorial templates, not AI-generated or fact-checked scripts.
 
-## External setup still required
-1. Create/select a Google Cloud project and enable YouTube Data API v3 and YouTube Analytics API.
-2. Configure OAuth consent screen and an OAuth web client. Request only required scopes; store refresh tokens encrypted on the server.
-3. Add the authorized redirect URI after the production callback route is deployed.
-4. Configure server-only environment variables: `YOUTUBE_CLIENT_ID`, `YOUTUBE_CLIENT_SECRET`, `YOUTUBE_REDIRECT_URI`, `YOUTUBE_TOKEN_ENCRYPTION_KEY`, `GROKBOT_WEBHOOK_SECRET`.
-5. Add a Supabase migration for channel connections, ideas, packages, approvals, publishing jobs, comments and analytics snapshots. Apply only after reviewing RLS policies.
-6. Connect Grokbot using the signed event contract. Confirm its actual endpoint, authentication method and event schema before enabling delivery.
-7. Connect the channel through OAuth and verify the returned channel ID/title. The public handle alone is not proof of account ownership.
-8. Start in read-only mode, then content studio, private uploads, approved publishing, and finally approved community replies.
+## Next steps
+1. Test the `/youtube` workspace on desktop and mobile.
+2. Select or reactivate the intended Supabase project, confirm its schema and membership/RLS model, then apply a reviewed migration.
+3. Add authenticated server-side CRUD and migrate browser drafts into shared storage.
+4. Configure Google Cloud OAuth, enable YouTube Data API v3 and YouTube Analytics API, and verify the returned channel identity.
+5. Begin read-only analytics, then private uploads, and only later approved publishing.
 
 ## Release gates
-- No public publish or schedule without a recorded human approval for that exact content version.
-- No comment reply without approval until moderation quality has been evaluated.
+- No public publish or schedule without a recorded human approval for the exact content and metadata version.
+- No comment reply without approval.
 - Verify OAuth scopes, channel identity, token encryption, RLS and audit logs.
 - Test quota handling, retries, idempotency and token revocation.
-- Never claim that the agent is live until OAuth, database migration, Grokbot endpoint and deployment have all been verified.
+- Never claim that the agent is fully operational until database persistence, OAuth and the relevant YouTube APIs are verified.
