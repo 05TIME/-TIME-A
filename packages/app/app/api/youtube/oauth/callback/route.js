@@ -1,4 +1,4 @@
-import { createDecipheriv, createHmac, timingSafeEqual, createCipheriv } from 'node:crypto';
+import { createHmac, timingSafeEqual, createCipheriv, randomBytes } from 'node:crypto';
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 
@@ -25,7 +25,7 @@ function encryptRefreshToken(token) {
   const keyHex = process.env.YOUTUBE_TOKEN_ENCRYPTION_KEY || '';
   if (!/^[0-9a-f]{64}$/i.test(keyHex)) throw new Error('Token encryption is not configured');
   const key = Buffer.from(keyHex, 'hex');
-  const iv = randomIv();
+  const iv = randomBytes(12);
   const cipher = createCipheriv('aes-256-gcm', key, iv);
   const ciphertext = Buffer.concat([cipher.update(token, 'utf8'), cipher.final()]);
   return {
@@ -33,15 +33,6 @@ function encryptRefreshToken(token) {
     iv: iv.toString('base64'),
     tag: cipher.getAuthTag().toString('base64'),
   };
-}
-
-function randomIv() {
-  return requireRandomBytes(12);
-}
-
-function requireRandomBytes(length) {
-  // A fresh nonce is generated for every AES-GCM encryption.
-  return Buffer.from(Array.from({ length }, () => Math.floor(Math.random() * 256)));
 }
 
 export async function GET(request) {
