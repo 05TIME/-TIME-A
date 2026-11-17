@@ -111,7 +111,7 @@ export async function GET(request) {
     if (!channelResponse.ok || !channel?.id) return redirectToStudio(request, 'youtube_error');
 
     const encrypted = encryptRefreshToken(tokens.refresh_token);
-    const supabaseUrl = process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL;
+    const supabaseUrl = process.env.YOUTUBE_SUPABASE_URL || process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL;
     const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SECRET_KEY;
     if (!supabaseUrl || !serviceKey) return redirectToStudio(request, 'youtube_error');
 
