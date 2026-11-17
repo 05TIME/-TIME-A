@@ -40,6 +40,7 @@ export default function YouTubeStudioPage() {
   const [tab, setTab] = useState('ideas');
   const [youtubeConnected, setYoutubeConnected] = useState(false);
   const [oauthMessage, setOauthMessage] = useState('');
+  const [youtubeChannelTitle, setYoutubeChannelTitle] = useState('');
 
   useEffect(() => {
     try {
@@ -64,6 +65,17 @@ export default function YouTubeStudioPage() {
     } else if (params.get('youtube_error') === '1') {
       setOauthMessage('YouTube could not be connected. Check the Google OAuth redirect URI and consent-screen setup, then try again.');
     }
+
+    fetch('/api/youtube/status', { cache: 'no-store' })
+      .then((response) => response.ok ? response.json() : null)
+      .then((data) => {
+        if (data?.connected) {
+          setYoutubeConnected(true);
+          setYoutubeChannelTitle(data.channelTitle || '');
+          setOauthMessage('Connected channel: ' + (data.channelTitle || 'YouTube channel') + '. Refresh token is encrypted server-side. Public publishing remains disabled.');
+        }
+      })
+      .catch(() => {});
   }, []);
 
   const counts = useMemo(() => ({
