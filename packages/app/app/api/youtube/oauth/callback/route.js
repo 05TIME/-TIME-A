@@ -120,7 +120,10 @@ export async function GET(request) {
     });
     const scopes = typeof tokens.scope === 'string'
       ? tokens.scope.split(' ').filter(Boolean)
-      : REQUIRED_SCOPES;
+      : [];
+    if (!REQUIRED_SCOPES.every((scope) => scopes.includes(scope))) {
+      return redirectToStudio(request, 'youtube_error');
+    }
     const { error } = await supabase.rpc('upsert_youtube_oauth_connection', {
       p_google_account_email: user.email || null,
       p_channel_id: channel.id,
